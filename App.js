@@ -1,114 +1,124 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow
- */
+import React, { Component } from "react";
+import { View, Text, Dimensions, TouchableOpacity, Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import uuid from "react-native-uuid";
+import Draggable from "./Draggable";
 
-import React, {Fragment} from 'react';
-import {
-  SafeAreaView,
-  StyleSheet,
-  ScrollView,
-  View,
-  Text,
-  StatusBar,
-} from 'react-native';
+const { width } = Dimensions.get("window");
 
-import {
-  Header,
-  LearnMoreLinks,
-  Colors,
-  DebugInstructions,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+class App extends Component {
+  /*
+    sequence: [{x,y,id}, ...]
+    clicked: str. 가장 최근에 선택된 공의 id
+  */
+  state = {
+    sequence: [],
+    clicked: null,
+  };
 
-const App = () => {
-  return (
-    <Fragment>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={styles.scrollView}>
-          <Header />
-          {global.HermesInternal == null ? null : (
-            <View style={styles.engine}>
-              <Text style={styles.footer}>Engine: Hermes</Text>
-            </View>
-          )}
-          <View style={styles.body}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Step One</Text>
-              <Text style={styles.sectionDescription}>
-                Edit <Text style={styles.highlight}>App.js</Text> to change this
-                screen and then come back to see your edits.
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>See Your Changes</Text>
-              <Text style={styles.sectionDescription}>
-                <ReloadInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Debug</Text>
-              <Text style={styles.sectionDescription}>
-                <DebugInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Learn More</Text>
-              <Text style={styles.sectionDescription}>
-                Read the docs to discover what to do next:
-              </Text>
-            </View>
-            <LearnMoreLinks />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </Fragment>
-  );
-};
+  componentDidMount() {
+    AsyncStorage.getItem("@sequence").then((item) => {
+      // 저장된 데이터가 있을 시, 불러온다.
+      if (item) this.setState({ sequence: JSON.parse(item) });
+    });
+  }
 
-const styles = StyleSheet.create({
-  scrollView: {
-    backgroundColor: Colors.lighter,
-  },
-  engine: {
-    position: 'absolute',
-    right: 0,
-  },
-  body: {
-    backgroundColor: Colors.white,
-  },
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.black,
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-    color: Colors.dark,
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-  footer: {
-    color: Colors.dark,
-    fontSize: 12,
-    fontWeight: '600',
-    padding: 4,
-    paddingRight: 12,
-    textAlign: 'right',
-  },
-});
+  onPressAdd = () => {
+    this.setState({
+      sequence: [...this.state.sequence, { x: 0, y: 0, id: uuid.v4() }],
+    });
+  };
+
+  onPressRemove = () => {
+    const { clicked } = this.state;
+
+    if (clicked == null) {
+      Alert.alert("", "아무 공도 선택되지 않았습니다.");
+    } else {
+      this.setState({
+        sequence: this.state.sequence.filter(({ x, y, id }) => id != clicked),
+        clicked: null,
+      });
+    }
+  };
+
+  onPressSave = () => {
+    const arr2json = JSON.stringify(this.state.sequence);
+
+    AsyncStorage.setItem("@sequence", arr2json).then((item) => {
+      Alert.alert("", "저장 완료.");
+    });
+  };
+
+  // 공을 움직인 뒤 손을 떼었을 때의 공의 좌표값을 업데이트
+  updateCoordinate = ({ x, y, id }) => {
+    const sequence = this.state.sequence.map((item) =>
+      item.id == id ? { x, y, id } : item
+    );
+
+    this.setState({ sequence, clicked: id });
+  };
+
+  render() {
+    return (
+      <View style={{ flex: 1 }}>
+        <View
+          style={{ height: 500, width, borderWidth: 2, borderColor: "green" }}
+        >
+          {this.state.sequence.map(({ x, y, id }) => (
+            <Draggable
+              x={x}
+              y={y}
+              id={id}
+              key={id}
+              updateCoordinate={this.updateCoordinate}
+            />
+          ))}
+        </View>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "green",
+            }}
+            onPress={this.onPressAdd}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>
+              추가
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "red",
+            }}
+            onPress={this.onPressRemove}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>
+              삭제
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "blue",
+            }}
+            onPress={this.onPressSave}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>
+              저장
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+}
 
 export default App;
